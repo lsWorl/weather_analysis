@@ -7,17 +7,24 @@ from location_analyzer import LocationAnalyzer
 from weather_analyzer import WeatherAnalyzer
 from db_handler import DBHandler
 from climate_similarity import ClimateSimilarityAnalyzer
-
+import logging
+from data_analyzer import DataAnalyzer
 
 class MQTTHandler:
     def __init__(self):
         self.client = mqtt.Client(client_id=MQTT_CONFIG["client_id"])
         self.setup_client()
+        logging.basicConfig(level=logging.DEBUG)
         self.location_analyzer = LocationAnalyzer()
         self.weather_analyzer = WeatherAnalyzer()
         self.db_handler = DBHandler()
+        self.analyzer = DataAnalyzer()
         self.climate_analyzer = ClimateSimilarityAnalyzer()
-
+        self.temp_hum = {
+            "timestamp":'',
+            "temperature":0.0,
+            "humidity":0.0
+        }
     def setup_client(self):
         # 设置回调函数
         self.client.on_connect = self.on_connect
@@ -63,8 +70,6 @@ class MQTTHandler:
             # 解码消息
             payload = msg.payload.decode("utf-8", errors="replace")
             payload = payload.replace("\n", "").strip()
-            # print("payload replace后的数据")
-            # print(payload)
             # 解析JSON数据
             data = json.loads(payload)
             if "timestamp" not in data:
@@ -73,6 +78,7 @@ class MQTTHandler:
             # 判断数据类型并处理
             if "data" in data:  # 温湿度数据
                 self.process_sensor_data(data)
+            print(f"收到传感器数据 - 温度: {self.temp_hum['temperature']}°C, 湿度: {self.temp_hum['humidity']}%")
             self.process_ap_data(data)
         except json.JSONDecodeError:
             print(f"无法解析JSON数据: {payload}")
@@ -95,10 +101,9 @@ class MQTTHandler:
             temp_hum = data["data"]
             temp = float(temp_hum.split("Temperature:")[1].split("C")[0].strip())
             hum = float(temp_hum.split("Humidity:")[1].split("%")[0].strip())
-
-            data["parsed_data"] = {"temperature": temp, "humidity": hum}
-            print(f"收到传感器数据 - 温度: {temp}°C, 湿度: {hum}%")
-
+            self.temp_hum['temperature'] = temp
+            self.temp_hum['humidity'] = hum
+            
         except Exception as e:
             print(f"处理传感器数据错误: {e}")
 
@@ -129,7 +134,13 @@ class MQTTHandler:
                     print(f"湿度: {current_weather['humidity']}%")
                     print(f"风向: {current_weather['windDir']}")
                     print(f"风速: {current_weather['windSpeed']}km/h")
-
+                    
+                    print(f"将api的温度{current_weather['temp']}替换为传感器测到的温度{self.temp_hum['temperature']}")
+                    current_weather['temp'] = self.temp_hum['temperature']
+                    current_weather['humidity'] = self.temp_hum['humidity']
+                    #将数据进行滤波
+                    self.analyzer.data_process(current_weather)
+                    return
                     # 保存当前位置天气数据
                     self.db_handler.save_weather_data(
                         location_info["city"], current_weather, "current"

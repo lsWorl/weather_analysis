@@ -1,10 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from config import FILE_TEMPERATURE_PATH, FILE_HUMIDITY_PATH
 
 
 class AlgorithmAnalyze:
     def __init__(self):
+        self.file_temp = pd.ExcelFile(FILE_TEMPERATURE_PATH)
+        self.file_hum = pd.ExcelFile(FILE_HUMIDITY_PATH)
         pass
 
     def temp_hum_chart(self, smoothed_data):
@@ -18,28 +21,31 @@ class AlgorithmAnalyze:
         plt.plot(
             smoothed_data["timestamp"], smoothed_data["humidity"], label="Humidity (%)"
         )
-        plt.xlabel('Time')
-        plt.ylabel('Values')
-        plt.title('Filtered Temperature and Humidity Data')
+        plt.xlabel("Time")
+        plt.ylabel("Values")
+        plt.title("Filtered Temperature and Humidity Data")
         plt.legend()
         plt.show()
 
+    def Z_score_standarize(self, df):
+        return (df.iloc[:, 1:] - df.iloc[:, 1:].mean()) / df.iloc[:, 1:].std()
+
 
 if __name__ == "__main__":
-    # 生成测试数据
-    num_points = 50  # 生成 50 个数据点
-    time_series = pd.date_range(start="2023-01-01", periods=num_points, freq="H")
-    # 模拟温度和湿度数据
-    np.random.seed(42)  # 固定随机种子，确保可复现
-    temperature = np.random.normal(
-        loc=20, scale=5, size=num_points
-    )  # 以 20°C 为均值的正态分布
-    humidity = np.random.normal(
-        loc=50, scale=10, size=num_points
-    )  # 以 50% 为均值的正态分布
-    # 生成 DataFrame
-    smoothed_data = pd.DataFrame(
-        {"timestamp": time_series, "temperature": temperature, "humidity": humidity}
-    )
     algorithm_analyze = AlgorithmAnalyze()
-    algorithm_analyze.temp_hum_chart(smoothed_data)
+    data = {
+        "city": ["用户所在地", "城市A", "城市B", "城市C"],
+        "temperature": [22.5, 23.1, 21.8, 22.3],  # 温度
+        "humidity": [55.0, 56.2, 54.8, 55.5],  # 湿度
+        "rainfall": [1.2, 1.0, 1.5, 1.3],  # 降水量
+    }
+    df =pd.DataFrame(data)
+    user_data = df.iloc[0,1:].values
+    df_zscore=df.copy()
+    df_zscore2 = algorithm_analyze.Z_score_standarize(df_zscore)
+    print(df_zscore2)
+    # df = pd.read_excel(FILE_TEMPERATURE_PATH,sheet_name='Sheet1')
+    # data_dict = df.to_dict(orient='records')
+    # temp_avg = []
+    # for row in data_dict:
+    #     temp_avg.append((row['最低温度(°C)'] +row['最高温度(°C)'])/2)
